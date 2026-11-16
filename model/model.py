@@ -1,3 +1,5 @@
+import copy
+
 from database.distributore_DAO import DistributoreDAO
 
 '''
@@ -25,7 +27,14 @@ class Model:
         :param mese: Mese selezionato (un intero da 1 a 12)
         :return: lista di tuple --> (nome del distributore, media), es. (Distributore A, 1.789)
         """
-        # TODO
+        risultati = []
+        for distributore in self._distributori:
+            prezzi = distributore.get_prezzi()
+            prezzi_mese = [p.prezzo_litro for p in prezzi if p.data.month == mese]
+            if prezzi_mese:
+                media = sum(prezzi_mese) / len(prezzi_mese)
+                risultati.append((distributore.nome, media))
+        return risultati
 
     def get_sequenza_ottima(self, mese:int):
         """
@@ -46,11 +55,38 @@ class Model:
 
     def __ricorsione(self, sequenza_parziale, giorno, ultimo_distributore, costo_corrente, prezzi_settimana):
         """ Implementa la ricorsione """
-        # TODO
+        if giorno > 7:
+            if self.__costo_ottimo == -1 or costo_corrente < self.__costo_ottimo:
+                self.__costo_ottimo = costo_corrente
+                self.__sequenza_ottima = copy.deepcopy(sequenza_parziale)
+            return
 
+        for id_dist, lista_prezzi in prezzi_settimana.items():
+            prezzo_litro = lista_prezzi[giorno - 1]
+            costo_rifornimento = prezzo_litro * 100
+            costo_spostamento = 5 if (ultimo_distributore is not None and ultimo_distributore != id_dist) else 0
+            nuovo_costo = costo_corrente + costo_rifornimento + costo_spostamento
+
+            if self.__costo_ottimo == -1 or nuovo_costo < self.__costo_ottimo:
+                sequenza_parziale.append(id_dist)
+                self.__ricorsione(sequenza_parziale, giorno + 1, id_dist, nuovo_costo, prezzi_settimana)
+                sequenza_parziale.pop()
     def __get_prezzi_prima_settimana_mese(self, mese: int):
         """
         Restituisce i prezzi dei primi 7 giorni del mese selezionato per ciascun distributore.
         :return: un dizionario: {id_distributore: [prezzo_giorno1, ..., prezzo_giorno7]}
         """
-        # TODO
+        prezzi_settimana = {}
+        for distributore in self._distributori:
+            prezzi = distributore.get_prezzi()
+            coppie_filtrate = []
+            for p in prezzi:
+                if p.data.month == mese and 1 <= p.data.day <= 7:
+                    coppie_filtrate.append((p.data, p.prezzo_litro))
+            coppie_ordinate = sorted(coppie_filtrate)
+            lista_prezzi_litro = []
+            for data, prezzo_litro in coppie_ordinate:
+                lista_prezzi_litro.append(prezzo_litro)
+            prezzi_settimana[distributore.id] = lista_prezzi_litro
+
+        return prezzi_settimana
